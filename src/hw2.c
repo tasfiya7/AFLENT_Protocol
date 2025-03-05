@@ -30,7 +30,6 @@ void print_packet(unsigned char packet[]){
 	//Data:
 	unsigned char *payload = &packet[3];
 	printf("Data: ");
-	int signed_data[length];
 	for (int i = 0; i<length; i++){
 		int value;
 		if (endianness==1){
@@ -38,13 +37,12 @@ void print_packet(unsigned char packet[]){
 		} else{
 			value = (payload[i * 4] << 24) | (payload[i * 4 + 1] << 16) | (payload[i * 4 + 2] << 8) | (payload[i * 4 + 3]);
 		}
-		signed_data[i]= value;
 		printf("%x", value);
 		if (i<length-1){
 			printf(" ");
 		}
 	}
-
+	printf("\n");
 }
 
 unsigned char* build_packets(int data[], int data_length, int max_fragment_size, int endianness, int array_number)
