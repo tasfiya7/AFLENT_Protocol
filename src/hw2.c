@@ -44,14 +44,7 @@ void print_packet(unsigned char packet[]){
 			printf(" ");
 		}
 	}
-	printf("\n\n(Data as a signed int: ");
-    for (int i = 0; i < length; i++) {
-		printf("%d", signed_data[i]);
-		if (i < length - 1) {
-			printf(", ");
-		}
-	}
-	printf(")\n");
+
 }
 
 unsigned char* build_packets(int data[], int data_length, int max_fragment_size, int endianness, int array_number)
