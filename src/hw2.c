@@ -45,14 +45,52 @@ void print_packet(unsigned char packet[]){
 	printf("\n");
 }
 
-unsigned char* build_packets(int data[], int data_length, int max_fragment_size, int endianness, int array_number)
-{
-	(void) data; //This line is only here to avoid compiler issues. Once you implement the function, please delete this line
-	(void) data_length; //This line is only here to avoid compiler issues. Once you implement the function, please delete this line
-	(void) max_fragment_size; //This line is only here to avoid compiler issues. Once you implement the function, please delete this line
-	(void) endianness; //This line is only here to avoid compiler issues. Once you implement the function, please delete this line
-	(void) array_number; //This line is only here to avoid compiler issues. Once you implement the function, please delete this line
-    return NULL;
+unsigned char* build_packets(int data[], int data_length, int max_fragment_size, int endianness, int array_number){
+
+	int max_ints_per_fragment = max_fragment_size / 4; 
+	int num_fragments = (data_length + max_ints_per_fragment - 1) / max_ints_per_fragment;
+
+	int total_bytes = num_fragments * (3 + (max_ints_per_fragment * 4)); // Total memory
+    unsigned char *packets = (unsigned char*)malloc(total_bytes);
+    
+    if (!packets) {
+        fprintf(stderr, "Memory allocation failed.\n");
+        return NULL;
+    }
+
+    int data_index = 0;
+    unsigned char *current_packet = packets;
+
+	for (int frag_num = 0; frag_num < num_fragments; frag_num++) {
+        int remaining_data = data_length - data_index;
+        int fragment_length = (remaining_data < max_ints_per_fragment) ? remaining_data : max_ints_per_fragment;
+
+		//header
+		current_packet[0] = (array_number << 2) | ((frag_num >> 3) & 0x03);
+        current_packet[1] = ((frag_num & 0x07) << 5) | ((fragment_length >> 5) & 0x1F);
+        current_packet[2] = ((fragment_length & 0x1F) << 3) | (endianness << 1) | ((frag_num == num_fragments - 1) ? 1 : 0);
+
+		//payload
+		unsigned char *payload = &current_packet[3];
+        for (int i = 0; i < fragment_length; i++) {
+            int value = data[data_index++];
+		
+			if (endianness == 1) { // Convert to little-endian if needed
+                payload[i * 4] = value & 0xFF;
+                payload[i * 4 + 1] = (value >> 8) & 0xFF;
+                payload[i * 4 + 2] = (value >> 16) & 0xFF;
+                payload[i * 4 + 3] = (value >> 24) & 0xFF;
+            } else { // Big-endian (default)
+                payload[i * 4] = (value >> 24) & 0xFF;
+                payload[i * 4 + 1] = (value >> 16) & 0xFF;
+                payload[i * 4 + 2] = (value >> 8) & 0xFF;
+                payload[i * 4 + 3] = value & 0xFF;
+            }
+        }
+		current_packet += (3 + fragment_length * 4);
+    }
+
+    return packets;
 }
 
 int** create_arrays(unsigned char packets[], int array_count, int *array_lengths)
