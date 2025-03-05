@@ -12,9 +12,46 @@
 
 //Packet Code:
 
-void print_packet(unsigned char packet[])
-{
-	(void) packet; //This line is only here to avoid compiler issues. Once you implement the function, please delete this line
+void print_packet(unsigned char packet[]){
+	int array_number = (packet[0] & 0xFC) >> 2;
+	int fragment_number = ((packet[0] & 0x03) << 3) | ((packet[1] & 0xE0) >> 5);
+	int length = ((packet[1] & 0x1F) << 5) | ((packet[2] & 0xF8) >> 3);
+	int encrypted = (packet[2] & 0x04) >> 2;
+	int endianness = (packet[2] & 0x02) >> 1;
+	int last = (packet[2] & 0x01);
+
+	printf("Array Number: %d\n", array_number);
+    printf("Fragment Number: %d\n", fragment_number);
+    printf("Length: %d\n", length);
+    printf("Encrypted: %d\n", encrypted);
+    printf("Endianness: %d\n", endianness);
+    printf("Last: %d\n", last);
+
+	//Data:
+	unsigned char *payload = &packet[3];
+	printf("Data: ");
+	int signed_data[length];
+	for (int i = 0; i<length; i++){
+		int value;
+		if (endianness==1){
+			value = (payload[i * 4]) | (payload[i * 4 + 1] << 8) | (payload[i * 4 + 2] << 16) | (payload[i * 4 + 3] << 24);
+		} else{
+			value = (payload[i * 4] << 24) | (payload[i * 4 + 1] << 16) | (payload[i * 4 + 2] << 8) | (payload[i * 4 + 3]);
+		}
+		signed_data[i]= value;
+		printf("%x", value);
+		if (i<length-1){
+			printf(" ");
+		}
+	}
+	printf("\n\n(Data as a signed int: ");
+    for (int i = 0; i < length; i++) {
+		printf("%d", signed_data[i]);
+		if (i < length - 1) {
+			printf(", ");
+		}
+	}
+	printf(")\n");
 }
 
 unsigned char* build_packets(int data[], int data_length, int max_fragment_size, int endianness, int array_number)
