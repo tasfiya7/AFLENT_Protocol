@@ -93,12 +93,99 @@ unsigned char* build_packets(int data[], int data_length, int max_fragment_size,
     return packets;
 }
 
-int** create_arrays(unsigned char packets[], int array_count, int *array_lengths)
-{
-    (void) packets; //This line is only here to avoid compiler issues. Once you implement the function, please delete this line
-	(void) array_count; //This line is only here to avoid compiler issues. Once you implement the function, please delete this line
-	(void) array_lengths; //This line is only here to avoid compiler issues. Once you implement the function, please delete this line
-    return NULL;
+int** create_arrays(unsigned char packets[], int array_count, int *array_lengths){	
+
+	int **arrays = (int**)calloc(array_count, sizeof(int*));
+    if (!arrays) {
+        fprintf(stderr, "Memory allocation failed.\n");
+        return NULL;
+    }
+
+	int **fragment_sizes = (int**)calloc(array_count, sizeof(int*));
+    int ***fragment_data = (int***)calloc(array_count, sizeof(int**));
+
+    if (!fragment_sizes || !fragment_data) {
+        fprintf(stderr, "Memory allocation failed.\n");
+        free(arrays);
+        return NULL;
+    }
+
+    int max_fragments = 32;
+
+	for (int i = 0; i < array_count; i++) {
+        fragment_sizes[i] = (int*)calloc(max_fragments, sizeof(int));
+        fragment_data[i] = (int**)calloc(max_fragments, sizeof(int*));
+
+        if (!fragment_sizes[i] || !fragment_data[i]) {
+            fprintf(stderr, "Memory allocation failed.\n");
+            return NULL;
+        }
+    }
+
+    int index = 0;
+	while (packets[index]){
+		int array_number = (packets[index] & 0xFC) >> 2;
+        int fragment_number = ((packets[index] & 0x03) << 3) | ((packets[index + 1] & 0xE0) >> 5);
+        int length = ((packets[index + 1] & 0x1F) << 5) | ((packets[index + 2] & 0xF8) >> 3);
+        //int encrypted = (packets[index + 2] & 0x04) >> 2;
+        int endianness = (packets[index + 2] & 0x02) >> 1;
+        //int last = (packets[index + 2] & 0x01);
+
+		fragment_sizes[array_number][fragment_number] = length;
+        fragment_data[array_number][fragment_number] = (int*)malloc(length * sizeof(int));
+        
+		if (!fragment_data[array_number][fragment_number]) {
+            fprintf(stderr, "Memory allocation failed.\n");
+            return NULL;
+        }
+		//payload
+		unsigned char *payload = &packets[index + 3];
+        for (int i = 0; i < length; i++) {
+            int value;
+            if (endianness == 1) { //litle
+                value = (payload[i * 4]) | (payload[i * 4 + 1] << 8) | (payload[i * 4 + 2] << 16) | (payload[i * 4 + 3] << 24);
+            } else { // big
+                value = (payload[i * 4] << 24) | (payload[i * 4 + 1] << 16) | (payload[i * 4 + 2] << 8) | (payload[i * 4 + 3]);
+            }
+            fragment_data[array_number][fragment_number][i] = value;
+        }
+		index += (3 + length * 4);
+
+	}
+
+	for (int i = 0; i < array_count; i++) {
+        int total_length = 0;
+
+		for (int j = 0; j < max_fragments; j++) {
+            total_length += fragment_sizes[i][j];
+        }
+		arrays[i] = (int*)malloc(total_length * sizeof(int));
+        if (!arrays[i]) {
+            fprintf(stderr, "Memory allocation failed.\n");
+            return NULL;
+        }
+
+        array_lengths[i] = total_length;
+        int position = 0;
+
+		for (int j = 0; j < max_fragments; j++) {
+            if (fragment_data[i][j] != NULL) {
+                memcpy(&arrays[i][position], fragment_data[i][j], fragment_sizes[i][j] * sizeof(int));
+                position += fragment_sizes[i][j];
+                free(fragment_data[i][j]); 
+            }
+        }
+    }
+
+	for (int i = 0; i < array_count; i++) {
+        free(fragment_sizes[i]);
+        free(fragment_data[i]);
+    }
+    free(fragment_sizes);
+    free(fragment_data);
+    
+	return arrays;
+	
 }
 
 
