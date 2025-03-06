@@ -86,12 +86,12 @@ unsigned char* build_packets(int data[], int data_length, int max_fragment_size,
         for (int i = 0; i < fragment_length; i++) {
             int value = data[data_index++];
 		
-			if (endianness == 1) { // Convert to little-endian if needed
+			if (endianness == 1) { // liitle e
                 payload[i * 4] = value & 0xFF;
                 payload[i * 4 + 1] = (value >> 8) & 0xFF;
                 payload[i * 4 + 2] = (value >> 16) & 0xFF;
                 payload[i * 4 + 3] = (value >> 24) & 0xFF;
-            } else { // Big-endian (default)
+            } else { // Big e
                 payload[i * 4] = (value >> 24) & 0xFF;
                 payload[i * 4 + 1] = (value >> 16) & 0xFF;
                 payload[i * 4 + 2] = (value >> 8) & 0xFF;
@@ -107,34 +107,48 @@ unsigned char* build_packets(int data[], int data_length, int max_fragment_size,
 
 static int compute_total_bytes(unsigned char packets[], int array_count) {
     int index = 0;
-    int count_last_found = 0;
-    // Allocate a boolean array to track which arrays have received their final packet.
-    bool *last_found = calloc(array_count, sizeof(bool));
-    if (!last_found) {
+    int complete_count = 0;
+    int *frag_count = calloc(array_count, sizeof(int));
+    int *expected = calloc(array_count, sizeof(int));
+    bool *complete = calloc(array_count, sizeof(bool));
+    if (!frag_count || !expected || !complete) {
         fprintf(stderr, "Memory allocation error in compute_total_bytes.\n");
         exit(EXIT_FAILURE);
     }
-    while (true) {
-        // Decode header.
+    for (int i = 0; i < array_count; i++) {
+        expected[i] = -1;
+        complete[i] = false;
+    }
+    
+    while (complete_count < array_count) {
         unsigned char h0 = packets[index];
         unsigned char h1 = packets[index + 1];
         unsigned char h2 = packets[index + 2];
+        
         int arr_num = (h0 & 0xFC) >> 2;
+        int frag_num = ((h0 & 0x03) << 3) | ((h1 & 0xE0) >> 5);
         int frag_length = ((h1 & 0x1F) << 5) | ((h2 & 0xF8) >> 3);
         int last_flag = h2 & 0x01;
         int packet_size = 3 + frag_length * 4;
-        index += packet_size;
-        if (last_flag && arr_num < array_count && !last_found[arr_num]) {
-            last_found[arr_num] = true;
-            count_last_found++;
+        
+        if (arr_num < array_count) {
+            frag_count[arr_num]++;
+            if (last_flag) {
+                expected[arr_num] = frag_num + 1;
+            }
+            if (expected[arr_num] != -1 && frag_count[arr_num] == expected[arr_num] && !complete[arr_num]) {
+                complete[arr_num] = true;
+                complete_count++;
+            }
         }
-        if (count_last_found == array_count)
-            break;
+        index += packet_size;
     }
-    free(last_found);
+    
+    free(frag_count);
+    free(expected);
+    free(complete);
     return index;
 }
-
 
 
 
@@ -142,11 +156,9 @@ int** create_arrays(unsigned char packets[], int array_count, int *array_lengths
 
 	int i, j;
     
-    // First, compute the total number of bytes in the packets array.
     int total_bytes = compute_total_bytes(packets, array_count);
     
-    // First pass: determine the total number of 32-bit ints for each array.
-    // Initialize array_lengths to zero.
+    // First pass
     for (i = 0; i < array_count; i++) {
         array_lengths[i] = 0;
     }
@@ -166,14 +178,12 @@ int** create_arrays(unsigned char packets[], int array_count, int *array_lengths
         index += packet_size;
     }
     
-    // Allocate an array of int pointers for the reassembled arrays.
     int **result = malloc(array_count * sizeof(int *));
     if (!result) {
         fprintf(stderr, "Memory allocation error for result arrays.\n");
         exit(EXIT_FAILURE);
     }
     
-    // Temporary storage: for each array, store its fragments (protocol allows up to 32 fragments per array).
     int max_frags = 32;
     frag_info **frag_lists = malloc(array_count * sizeof(frag_info *));
     int *frag_counts = calloc(array_count, sizeof(int));
@@ -189,7 +199,7 @@ int** create_arrays(unsigned char packets[], int array_count, int *array_lengths
         }
     }
     
-    // Second pass: record each packet's fragment info.
+    // Second pass
     index = 0;
     while (index < total_bytes) {
         unsigned char h0 = packets[index];
@@ -201,7 +211,6 @@ int** create_arrays(unsigned char packets[], int array_count, int *array_lengths
         int frag_length = ((h1 & 0x1F) << 5) | ((h2 & 0xF8) >> 3);
         int endianness = (h2 & 0x02) >> 1;
         int last_flag = h2 & 0x01;
-        
         int packet_size = 3 + frag_length * 4;
         
         if (arr_num < array_count) {
@@ -213,11 +222,9 @@ int** create_arrays(unsigned char packets[], int array_count, int *array_lengths
             frag_lists[arr_num][pos].payload = &packets[index + 3];
             frag_counts[arr_num]++;
         }
-        
         index += packet_size;
     }
     
-    // Sort fragments for each array by fragment number.
     for (i = 0; i < array_count; i++) {
         for (j = 0; j < frag_counts[i] - 1; j++) {
             for (int k = j + 1; k < frag_counts[i]; k++) {
@@ -230,7 +237,6 @@ int** create_arrays(unsigned char packets[], int array_count, int *array_lengths
         }
     }
     
-    // Allocate memory for each complete array and reassemble the payloads.
     for (i = 0; i < array_count; i++) {
         result[i] = malloc(array_lengths[i] * sizeof(int));
         if (!result[i]) {
@@ -242,15 +248,14 @@ int** create_arrays(unsigned char packets[], int array_count, int *array_lengths
             int frag_length = frag_lists[i][j].frag_length;
             unsigned char *payload = frag_lists[i][j].payload;
             int endian = frag_lists[i][j].endianness;
-            // Convert each group of 4 bytes to a 32-bit int.
             for (int k = 0; k < frag_length; k++) {
                 int value;
-                if (endian == 1) { // little-endian
+                if (endian == 1) { 
                     value = payload[k * 4] |
                            (payload[k * 4 + 1] << 8) |
                            (payload[k * 4 + 2] << 16) |
                            (payload[k * 4 + 3] << 24);
-                } else { // big-endian
+                } else { 
                     value = (payload[k * 4] << 24) |
                            (payload[k * 4 + 1] << 16) |
                            (payload[k * 4 + 2] << 8) |
@@ -261,7 +266,6 @@ int** create_arrays(unsigned char packets[], int array_count, int *array_lengths
         }
     }
     
-    // Free temporary fragment info.
     for (i = 0; i < array_count; i++) {
         free(frag_lists[i]);
     }
