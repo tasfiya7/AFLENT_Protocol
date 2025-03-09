@@ -22,11 +22,17 @@ int** create_arrays(unsigned char packets[], int array_count, int *array_lengths
 
 typedef uint64_t sbu_key_t;
 typedef uint32_t block_t;
+typedef block_t (*permute_func_t)(block_t);
 
 void sbu_expand_keys(sbu_key_t key, block_t *expanded_keys);
 
 void sbu_encrypt(uint8_t *plaintext_input, block_t *encrypted_output, size_t pt_len, uint32_t *expanded_keys);
 
 void sbu_decrypt(block_t *encrypted_input, uint8_t *plaintext_output, size_t pt_len, uint32_t *expanded_keys);
+
+
+block_t sbu_encrypt_block(block_t plain_text, block_t *expanded_keys);
+block_t sbu_encrypt_block_debug(block_t plain_text, block_t *expanded_keys);
+block_t sbu_decrypt_block(block_t cipher_text, block_t *expanded_keys);
 
 #endif // HW2_H
