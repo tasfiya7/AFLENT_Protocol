@@ -380,13 +380,11 @@ void sbu_expand_keys(sbu_key_t key, block_t *expanded_keys){
 
     expanded_keys[0] = (block_t)(key & 0xFFFFFFFFULL);
     expanded_keys[1] = (block_t)(key >> 32);
-    // Step 2:
     for (int i = 2; i < EXPANDED_KEYS_LENGTH; i++) {
         uint32_t temp = expanded_keys[i - 1] ^ expanded_keys[i - 2];
         int idx = temp % 64;
         expanded_keys[i] = table[idx] ^ expanded_keys[i - 1];
     }
-    // Step 3:
     for (int i = EXPANDED_KEYS_LENGTH - 3; i >= 0; i--) {
         uint32_t temp = expanded_keys[i + 1] ^ expanded_keys[i + 2];
         int idx = temp % 64;
