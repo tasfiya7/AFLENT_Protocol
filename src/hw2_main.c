@@ -5,63 +5,54 @@
 #include "hw2.h"
 #include <string.h>
 
-typedef uint32_t block_t;
-typedef uint64_t sbu_key_t;
-
-extern uint8_t rotl(uint8_t x, uint8_t shamt);
-extern uint8_t rotr(uint8_t x, uint8_t shamt);
-extern block_t reverse(block_t x);
-extern block_t shuffle4(block_t x);
-extern block_t unshuffle4(block_t x);
-extern block_t shuffle1(block_t x);
-extern block_t unshuffle1(block_t x);
-extern uint8_t nth_byte(block_t x, uint8_t n);
-
-void test_reverse() {
-    block_t x = 0x12345678;
-    block_t rev = reverse(x);
-    block_t rev2 = reverse(rev);
-    printf("reverse: x = 0x%08X, reverse(x) = 0x%08X, reverse(reverse(x)) = 0x%08X\n", x, rev, rev2);
-    assert(rev2 == x);
-}
-
-void test_shuffle4() {
-    block_t x = 0x76543210;
-    block_t shuf = shuffle4(x);
-    block_t unshuf = unshuffle4(shuf);
-    printf("shuffle4: x = 0x%08X, shuffle4(x) = 0x%08X, unshuffle4(shuffle4(x)) = 0x%08X\n", x, shuf, unshuf);
-    assert(unshuf == x);
-}
-
-void test_shuffle1() {
-    block_t x = 0x12345678;
-    block_t shuf = shuffle1(x);
-    block_t unshuf = unshuffle1(shuf);
-    printf("shuffle1: x = 0x%08X, shuffle1(x) = 0x%08X, unshuffle1(shuffle1(x)) = 0x%08X\n", x, shuf, unshuf);
-    assert(unshuf == x);
-}
-
-void test_nth_byte() {
-    // For a block in little-endian order, nth_byte(x, 0) should return the least-significant byte.
-    block_t x = 0xDDCCBBAA; // Expected bytes: AA, BB, CC, DD
-    uint8_t b0 = nth_byte(x, 0);
-    uint8_t b1 = nth_byte(x, 1);
-    uint8_t b2 = nth_byte(x, 2);
-    uint8_t b3 = nth_byte(x, 3);
-    printf("nth_byte: x = 0x%08X, bytes = 0x%02X 0x%02X 0x%02X 0x%02X\n", x, b0, b1, b2, b3);
-    // Expect: b0 = 0xAA, b1 = 0xBB, b2 = 0xCC, b3 = 0xDD
-    assert(b0 == 0xAA);
-    assert(b1 == 0xBB);
-    assert(b2 == 0xCC);
-    assert(b3 == 0xDD);
-}
+extern block_t sbu_encrypt_block_debug(block_t plain_text, block_t *expanded_keys);
 
 int main(void) {
-    printf("Testing low-level operations...\n");
-    test_reverse();
-    test_shuffle4();
-    test_shuffle1();
-    test_nth_byte();
-    printf("All low-level tests passed.\n");
+    printf("=== Debugging Encryption/Decryption Module ===\n\n");
+
+    // --- Use the example from the pdf ---
+    // Key from pdf: 0xab6176446f0c280a
+    sbu_key_t key = 0xab6176446f0c280aULL;
+    block_t key_sched[EXPANDED_KEYS_LENGTH] = {0};
+    sbu_expand_keys(key, key_sched);
+
+    printf("Expanded key schedule (first 8 values):\n");
+    for (int i = 0; i < 8; i++) {
+        printf("S[%d] = 0x%08X\n", i, key_sched[i]);
+    }
+    printf("\n");
+
+    // --- Debug Single Block Encryption (only once) ---
+    // Use plaintext block 0x739192B5 from the pdf.
+    block_t plaintext_block = 0x739192B5;
+    printf("Debug single block encryption (plaintext = 0x%08X):\n", plaintext_block);
+    block_t cipher_block = sbu_encrypt_block_debug(plaintext_block, key_sched);
+    printf("Final ciphertext block: 0x%08X\n\n", cipher_block);
+
+    // --- Stream Encryption/Decryption Test (without debug prints) ---
+    char message[] = "We the People of the United States, in Order to form a more perfect Union...";
+    size_t msg_len = strlen(message) + 1; // include null terminator
+    size_t num_blocks = (msg_len + 3) / 4;
+    block_t *encrypted = malloc(num_blocks * sizeof(block_t));
+    uint8_t *decrypted = malloc(msg_len);
+    if (!encrypted || !decrypted) {
+        fprintf(stderr, "Memory allocation error.\n");
+        return 1;
+    }
+
+    printf("Encrypting message:\n%s\n\n", message);
+    sbu_encrypt((uint8_t *)message, encrypted, msg_len, key_sched);
+
+    printf("Encrypted blocks:\n");
+    for (size_t i = 0; i < num_blocks; i++) {
+        printf("Block %zu: 0x%08X\n", i, encrypted[i]);
+    }
+    printf("\n");
+
+    sbu_decrypt(encrypted, decrypted, msg_len, key_sched);
+    printf("Decrypted message:\n%s\n", decrypted);
+
+    free(encrypted);
+    free(decrypted);
     return 0;
 }

@@ -445,50 +445,6 @@ block_t mash(block_t x, block_t *keys){
 }
 
 
-block_t sbu_encrypt_block_debug(block_t plain_text, block_t *expanded_keys) {
-    block_t R00 = plain_text;
-    printf("R00 = 0x%08X\n", R00);
-    block_t R01 = scramble(R00, expanded_keys, 0, reverse);
-    printf("R01 = 0x%08X\n", R01);
-    block_t R02 = scramble(R01, expanded_keys, 1, shuffle1);
-    printf("R02 = 0x%08X\n", R02);
-    block_t R03 = scramble(R02, expanded_keys, 2, shuffle4);
-    printf("R03 = 0x%08X\n", R03);
-    block_t R04 = scramble(R03, expanded_keys, 3, reverse);
-    printf("R04 = 0x%08X\n", R04);
-    block_t R05 = mash(R04, expanded_keys);
-    printf("R05 = 0x%08X\n", R05);
-    block_t R06 = scramble(R05, expanded_keys, 4, reverse);
-    printf("R06 = 0x%08X\n", R06);
-    block_t R07 = scramble(R06, expanded_keys, 5, shuffle1);
-    printf("R07 = 0x%08X\n", R07);
-    block_t R08 = scramble(R07, expanded_keys, 6, shuffle4);
-    printf("R08 = 0x%08X\n", R08);
-    block_t R09 = scramble(R08, expanded_keys, 7, reverse);
-    printf("R09 = 0x%08X\n", R09);
-    block_t R10 = mash(R09, expanded_keys);
-    printf("R10 = 0x%08X\n", R10);
-    block_t R11 = scramble(R10, expanded_keys, 8, reverse);
-    printf("R11 = 0x%08X\n", R11);
-    block_t R12 = scramble(R11, expanded_keys, 9, shuffle1);
-    printf("R12 = 0x%08X\n", R12);
-    block_t R13 = scramble(R12, expanded_keys, 10, shuffle4);
-    printf("R13 = 0x%08X\n", R13);
-    block_t R14 = scramble(R13, expanded_keys, 11, reverse);
-    printf("R14 = 0x%08X\n", R14);
-    block_t R15 = mash(R14, expanded_keys);
-    printf("R15 = 0x%08X\n", R15);
-    block_t R16 = scramble(R15, expanded_keys, 12, reverse);
-    printf("R16 = 0x%08X\n", R16);
-    block_t R17 = scramble(R16, expanded_keys, 13, shuffle1);
-    printf("R17 = 0x%08X\n", R17);
-    block_t R18 = scramble(R17, expanded_keys, 14, shuffle4);
-    printf("R18 = 0x%08X\n", R18);
-    block_t R19 = scramble(R18, expanded_keys, 15, reverse);
-    printf("R19 = 0x%08X\n", R19);
-    return R19;
-}
-
 
 block_t sbu_encrypt_block(block_t plain_text, block_t *expanded_keys) {
     block_t R01, R02, R03, R04, R05, R06, R07, R08, R09,
@@ -522,7 +478,7 @@ uint8_t r_scramble_op(block_t B, uint8_t i, block_t keyA, block_t keyB)
 {
 
     uint8_t B_i    = nth_byte(B, i);
-    uint8_t B1     = rotr(B_i, rot_table[i]);
+    uint8_t B1     = rotr(B_i, table[i]);
 
     uint8_t B_im1  = nth_byte(B, i - 1);
     uint8_t B_im2  = nth_byte(B, i - 2);
@@ -585,70 +541,6 @@ block_t sbu_decrypt_block(block_t cipher_text, block_t *expanded_keys){
     R18 = r_scramble(R17, expanded_keys, 1, unshuffle1);
     R19 = r_scramble(R18, expanded_keys, 0, reverse);
 
-    return R19;
-}
-
-block_t sbu_decrypt_block_debug(block_t cipher_text, block_t *expanded_keys) {
-    block_t R00 = cipher_text;
-    printf("R00 = 0x%08X\n", R00);
-    
-    block_t R01 = r_scramble(R00, expanded_keys, 15, reverse);
-    printf("R01 = 0x%08X\n", R01);
-    
-    block_t R02 = r_scramble(R01, expanded_keys, 14, unshuffle4);
-    printf("R02 = 0x%08X\n", R02);
-    
-    block_t R03 = r_scramble(R02, expanded_keys, 13, unshuffle1);
-    printf("R03 = 0x%08X\n", R03);
-    
-    block_t R04 = r_scramble(R03, expanded_keys, 12, reverse);
-    printf("R04 = 0x%08X\n", R04);
-    
-    block_t R05 = r_mash(R04, expanded_keys);
-    printf("R05 = 0x%08X\n", R05);
-    
-    block_t R06 = r_scramble(R05, expanded_keys, 11, reverse);
-    printf("R06 = 0x%08X\n", R06);
-    
-    block_t R07 = r_scramble(R06, expanded_keys, 10, unshuffle4);
-    printf("R07 = 0x%08X\n", R07);
-    
-    block_t R08 = r_scramble(R07, expanded_keys, 9, unshuffle1);
-    printf("R08 = 0x%08X\n", R08);
-    
-    block_t R09 = r_scramble(R08, expanded_keys, 8, reverse);
-    printf("R09 = 0x%08X\n", R09);
-    
-    block_t R10 = r_mash(R09, expanded_keys);
-    printf("R10 = 0x%08X\n", R10);
-    
-    block_t R11 = r_scramble(R10, expanded_keys, 7, reverse);
-    printf("R11 = 0x%08X\n", R11);
-    
-    block_t R12 = r_scramble(R11, expanded_keys, 6, unshuffle4);
-    printf("R12 = 0x%08X\n", R12);
-    
-    block_t R13 = r_scramble(R12, expanded_keys, 5, unshuffle1);
-    printf("R13 = 0x%08X\n", R13);
-    
-    block_t R14 = r_scramble(R13, expanded_keys, 4, reverse);
-    printf("R14 = 0x%08X\n", R14);
-    
-    block_t R15 = r_mash(R14, expanded_keys);
-    printf("R15 = 0x%08X\n", R15);
-    
-    block_t R16 = r_scramble(R15, expanded_keys, 3, reverse);
-    printf("R16 = 0x%08X\n", R16);
-    
-    block_t R17 = r_scramble(R16, expanded_keys, 2, unshuffle4);
-    printf("R17 = 0x%08X\n", R17);
-    
-    block_t R18 = r_scramble(R17, expanded_keys, 1, unshuffle1);
-    printf("R18 = 0x%08X\n", R18);
-    
-    block_t R19 = r_scramble(R18, expanded_keys, 0, reverse);
-    printf("R19 = 0x%08X\n", R19);
-    
     return R19;
 }
 
